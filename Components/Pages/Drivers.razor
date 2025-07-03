@@ -1,0 +1,128 @@
+﻿@page "/drivers"
+
+@using MudBlazor
+@using SVGLClub.Data
+@using SVGLClub.Data.Services
+@using SVGLClub.Components.Layout
+
+@inject ISessionSyncService SessionSyncService
+@inject IQueryService QueryService
+@inject IContentLoader ContentLoader
+
+@rendermode InteractiveServer
+
+<PageTitle>Drivers</PageTitle>
+
+<MudContainer>
+	<MudContainer Class="my-4">
+		<MudText Typo="Typo.h2">Driver Stats</MudText>
+	</MudContainer>
+
+	@if (!_pageLoaded)
+	{
+		<MudContainer Class="my-4">
+			<MudProgressCircular Indeterminate=true />
+			<MudText Typo="Typo.h6">Loading...</MudText>
+		</MudContainer>
+	}
+	else
+	{
+		<MudTabs Outlined="true" Position="Position.Left" Rounded="true" Border="true" ApplyEffectsToContainer="true" Class="mud-theme-dark my-4" PanelClass="pa-4">
+			@foreach (var driver in _driverLaps.Keys)
+			{
+				<MudTabPanel Text="@_driverLookup[driver]">
+					<MudStack Class="mud-width-full">
+						<UserDashboard LapCount="@GetDriverLapCount(driver)" FavoriteCar="@GetDriverFavoriteCar(driver)" FavoriteTrack="@GetDriverFavoriteTrack(driver)" />
+						<DriverFastestLaps DriverId="@driver" Sessions="_sessions" DriverLaps="_driverLaps" DriverTracks="_driverTracks" />
+						<OffTrackChart />
+					</MudStack>
+				</MudTabPanel>
+			}
+		</MudTabs>
+	}
+</MudContainer>
+
+@code {
+	private List<AssettoSession> _sessions { get; set; } = null!;
+	private Dictionary<string, List<SessionLap>> _driverLaps { get; set; } = null!;
+	private Dictionary<string, string> _driverLookup { get; set; } = null!;
+	private Dictionary<string, HashSet<string>> _driverTracks { get; set; } = null!;
+
+	private bool _pageLoaded = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await SessionSyncService.UpdateSessionsAsync();
+		_sessions = await QueryService.QuerySessions();
+		await ContentLoader.GetNamesAsync(_sessions);
+
+		_driverLaps = BuildDriverLapDictionary();
+		_driverLookup = BuildDriverLookup();
+		_driverTracks = _driverLaps.ToDictionary(kv => kv.Key, kv => GetUniqueTracksForDriver(kv.Key));
+
+		_pageLoaded = true;
+	}
+
+	private Dictionary<string, string> BuildDriverLookup()
+	{
+		return _sessions
+			.SelectMany(s => s.Results ?? Enumerable.Empty<SessionResult>())
+			.GroupBy(r => r.DriverGuid)
+			.ToDictionary(g => g.Key, g => g.First().DriverName);
+	}
+
+	private Dictionary<string, List<SessionLap>> BuildDriverLapDictionary()
+	{
+		return _sessions
+			.SelectMany(s => s.Laps!)
+			.GroupBy(l => l.DriverGuid)
+			.ToDictionary(g => g.Key, g => g.ToList());
+	}
+
+	private HashSet<string> GetUniqueTracksForDriver(string driverId)
+	{
+		return _sessions
+			.Where(s => s.Laps!.Any(l => l.DriverGuid == driverId))
+			.Select(s => s.TrackConfig is null or "" ? $"{s.TrackName}|" : $"{s.TrackName}|{s.TrackConfig}")
+			.ToHashSet();
+	}
+
+	private int GetDriverLapCount(string driverId)
+	{
+		var laps = _driverLaps[driverId];
+
+		return laps.Count();
+	}
+
+	private string GetDriverFavoriteCar(string driverId)
+	{
+		var laps = _driverLaps[driverId];
+
+		return laps
+			.GroupBy(l => l.CarModel)
+			.MaxBy(g => g.Count())?.Key ?? string.Empty;
+	}
+
+	private string GetDriverFavoriteTrack(string driverId)
+	{
+		var laps = _driverLaps[driverId];
+
+		var sessionId = laps
+							.GroupBy(l => l.AssettoSessionId)
+							.MaxBy(g => g.Count())!.Key;
+
+		var sessionTrack = _sessions
+			.ToDictionary(
+					s => s.Id,
+					s => string.IsNullOrEmpty(s.TrackConfig)
+						? $"{s.TrackName}|"
+						: $"{s.TrackName}|{s.TrackConfig}"
+			);
+
+		return laps
+			.GroupBy(l => sessionTrack[l.AssettoSessionId])
+			.OrderByDescending(g => g.Count())
+			.Select(g => g.Key)
+			.FirstOrDefault() ?? string.Empty;
+	}
+}

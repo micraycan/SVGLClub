@@ -1,0 +1,153 @@
+﻿@using MudBlazor
+@using SVGLClub.Data
+@using SVGLClub.Data.Services
+
+@inject IContentLoader ContentLoader
+
+<MudTabs Outlined="true" Position="Position.Left" Rounded="true" Border="true" ApplyEffectsToContainer="true" Class="mud-theme-dark my-4">
+	@foreach (var trackId in TrackIds)
+	{
+		<MudTabPanel Text="@ContentLoader.GetDisplayName(trackId)" Style="@GetTrackPanelStyle(trackId)">
+			<MudCard Square="true" Class="mud-width-full">
+				<MudStack Row="true">
+					<MudCardMedia Image="@GetTrackImageUrl(trackId)" Height="200" />
+					<MudCardContent>
+						@{
+							var prototype = GetLeaderboardItems(trackId, _classPrototype);
+							if (prototype.Count > 0)
+							{
+								<MudText Typo="Typo.h6">Prototype Class</MudText>
+								<MudPaper><TrackClassLeaderboard Items="prototype" /></MudPaper>
+								
+							}
+							var gt3Laps = GetLeaderboardItems(trackId, _classGt3);
+							if (gt3Laps.Count > 0)
+							{
+								<MudText Typo="Typo.h6">GT3 Class</MudText>
+								<MudPaper><TrackClassLeaderboard Items="gt3Laps" /></MudPaper>
+							}
+							var tatuus = GetLeaderboardItems(trackId, _classTatuus);
+							if (tatuus.Count > 0)
+							{
+								<MudText Typo="Typo.h6">Tatuusy Class</MudText>
+								<MudPaper><TrackClassLeaderboard Items="tatuus" /></MudPaper>
+							}
+							var praga = GetLeaderboardItems(trackId, _classPraga);
+							if (praga.Count > 0)
+							{
+								<MudText Typo="Typo.h6">Praga Class</MudText>
+								<MudPaper><TrackClassLeaderboard Items="praga" /></MudPaper>
+							}
+							var mx5 = GetLeaderboardItems(trackId, _classMx5);
+							if (mx5.Count > 0)
+							{
+								<MudText Typo="Typo.h6">MX-5 Class</MudText>
+								<MudPaper><TrackClassLeaderboard Items="mx5" /></MudPaper>
+							}
+							var classic = GetLeaderboardItems(trackId, _classClassic);
+							if (classic.Count > 0)
+							{
+								<MudText Typo="Typo.h6">Classic Class</MudText>
+								<MudPaper><TrackClassLeaderboard Items="classic" /></MudPaper>
+							}
+							var rentalKart = GetLeaderboardItems(trackId, _classRentalKart);
+							if (rentalKart.Count > 0)
+							{
+								<MudText Typo="Typo.h6">Rental Kart</MudText>
+								<MudPaper><TrackClassLeaderboard Items="rentalKart" /></MudPaper>
+							}
+						}
+					</MudCardContent>
+				</MudStack>
+			</MudCard>
+		</MudTabPanel>
+	}
+</MudTabs>
+
+@code {
+	[Parameter] public List<AssettoSession> Sessions { get; set; } = null!;
+
+	// hard coded car classes
+	private List<string> _classGt3 = new() 
+	{ 
+		"bmw_z4_gt3", "ks_audi_r8_lms", "ks_corvette_c7r", "ks_ferrari_488_gt3", "ks_lamborghini_huracan_gt3", "ks_mclaren_650_gt3", "ks_mercedes_amg_gt3", "ks_nissan_gtr_gt3", "ks_porsche_911_gt3_rs" 
+	};
+	private List<string> _classMx5 = new() { "ks_mazda_mx5_cup" };
+	private List<string> _classPraga = new() { "ks_praga_r1" };
+	private List<string> _classClassic = new() { "shelby_cobra_427sc", "bmw_m3_e30" };
+	private List<string> _classTatuus = new() { "tatuusfa1" };
+	private List<string> _classPrototype = new() { "ks_porsche_919_hybrid_2016" };
+	private List<string> _classRentalKart = new() { "piereligio_sodi_sr4_outdoor" };
+
+
+	private List<string> TrackIds => Sessions
+		.Select(s => string.IsNullOrEmpty(s.TrackConfig)
+					? $"{s.TrackName}|"
+					: $"{s.TrackName}|{s.TrackConfig}")
+		.Distinct()
+		.OrderBy(t => t)
+		.ToList();
+
+	private List<LeaderboardItem> GetLeaderboardItems(string trackId, List<string> carClass)
+	{
+		var lapsOnTrack = Sessions
+			.Where(s =>
+				(string.IsNullOrEmpty(s.TrackConfig)
+					? $"{s.TrackName}|"
+					: $"{s.TrackName}|{s.TrackConfig}")
+				== trackId)
+			.SelectMany(s => s.Laps!.Where(l => l.Cuts == 0 && carClass.Contains(l.CarModel)))
+			.ToList();
+
+		var drivers = lapsOnTrack
+			.GroupBy(l => l.DriverGuid)
+			.Select(g =>
+			{
+				var bestLap = g.OrderBy(l => l.LapTime).First();
+				var name = Sessions
+					.SelectMany(s => s.Results ?? Enumerable.Empty<SessionResult>())
+					.First(r => r.DriverGuid == g.Key)
+					.DriverName;
+				return new LeaderboardItem
+				{
+					DriverGuid = g.Key,
+					DriverName = name,
+					FastestLapMs = bestLap.LapTime,
+					CarModel = bestLap.CarModel
+				};
+			})
+			.OrderBy(i => i.FastestLapMs)
+			.ToList();
+
+		for (int i = 0; i < drivers.Count(); i++)
+		{
+			drivers[i].Rank = i + 1;
+		}
+
+		return drivers;
+	}
+
+	private string GetTrackImageUrl(string track)
+	{
+		var trackParts = track.Split("|");
+
+		if (trackParts[1] == "") { trackParts[1] = "default"; }
+
+		return $"/accontent/tracks/{trackParts[0]}/{trackParts[1]}/preview.png";
+	}
+
+	private string GetTrackPanelStyle(string track)
+	{
+		var trackParts = track.Split("|");
+
+		if (trackParts[1] == "") { trackParts[1] = "default"; }
+
+		return $@"
+			cursor:pointer;
+			background:
+				linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, .9)),
+				url('/accontent/tracks/{trackParts[0]}/{trackParts[1]}/preview.png');
+			background-size: cover;
+			background-position: center;";
+	}
+}

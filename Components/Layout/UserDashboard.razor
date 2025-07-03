@@ -1,0 +1,41 @@
+﻿@using MudBlazor
+@using SVGLClub.Data.Services
+
+@inject IContentLoader ContentLoader
+
+<MudGrid>
+	<MudItem xs="12" sm="4">
+		<MudCard>
+			<MudCardContent>
+				<MudText Typo="Typo.h6">Favorite Car</MudText>
+				<MudText Typo="Typo.body1">
+					<MudImage Style="vertical-align:middle; margin-right:4px" Src="@GetCarBrandSrc(FavoriteCar)" Alt="logo" Height="16" />@ContentLoader.GetDisplayName(FavoriteCar)
+				</MudText>
+			</MudCardContent>
+		</MudCard>
+	</MudItem>
+	<MudItem xs="12" sm="4">
+		<MudCard>
+			<MudCardContent>
+				<MudText Typo="Typo.h6">Laps Driven</MudText>
+				<MudText Typo="Typo.body1">@LapCount</MudText>
+			</MudCardContent>
+		</MudCard>
+	</MudItem>
+	<MudItem xs="12" sm="4">
+		<MudCard>
+			<MudCardContent>
+				<MudText Typo="Typo.h6">Favorite Track</MudText>
+				<MudText Typo="Typo.body1">@ContentLoader.GetDisplayName(FavoriteTrack)</MudText>
+			</MudCardContent>
+		</MudCard>
+	</MudItem>
+</MudGrid>
+
+@code {
+	[Parameter] public string FavoriteCar { get; set; } = "-";
+	[Parameter] public int LapCount { get; set; } = 0;
+	[Parameter] public string FavoriteTrack { get; set; } = "-";
+
+	private string GetCarBrandSrc(string car) => $"accontent/cars/{car}/badge.png";
+}

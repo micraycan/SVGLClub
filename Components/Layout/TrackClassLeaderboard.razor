@@ -1,0 +1,53 @@
+﻿@using MudBlazor
+@using SVGLClub.Data
+@using SVGLClub.Data.Services
+
+@inject IContentLoader ContentLoader
+
+<MudTable Items="@Items" Dense="true" Hover="true" Class="mud-theme-dark my-4">
+	<ColGroup>
+		<col style="width: 5%;" />
+		<col style="width: 25%;" />
+		<col style="width: 25%;" />
+		<col style="width: 45%;" />
+	</ColGroup>
+	<HeaderContent>
+		<MudTh>Place</MudTh>
+		<MudTh>Driver</MudTh>
+		<MudTh>Fastest Lap</MudTh>
+		<MudTh>Car</MudTh>
+	</HeaderContent>
+	<RowTemplate Context="item">
+		<MudTd>
+			@if (item.Rank == 1)
+			{
+				<MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Style="color:#FFD700;height:16px;" />
+			}
+			else if (item.Rank == 2)
+			{
+				<MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Style="color:#C0C0C0;height:16px;" />
+			}
+			else if (item.Rank == 3)
+			{
+				<MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Style="color:#CD7F32;height:16px;" />
+			}
+			else
+			{
+				@($"{item.Rank}th")
+			}
+		</MudTd>
+		<MudTd>@item.DriverName</MudTd>
+		<MudTd>@Util.FormatTime(TimeSpan.FromMilliseconds(item.FastestLapMs))</MudTd>
+		<MudTd>
+			<MudImage Src="@GetCarBrandSrc(item.CarModel)" Alt="logo" Height="16" Style="vertical-align:middle;margin-right:4px" />
+			@ContentLoader.GetDisplayName(item.CarModel)
+		</MudTd>
+	</RowTemplate>
+</MudTable>
+
+@code {
+	[Parameter] public List<LeaderboardItem> Items { get; set; } = new();
+	[Parameter] public List<string> Cars { get; set; } = new();
+
+	private string GetCarBrandSrc(string car) => $"accontent/cars/{car}/badge.png";
+}

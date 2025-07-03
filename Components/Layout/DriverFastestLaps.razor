@@ -1,0 +1,141 @@
+﻿@using MudBlazor
+@using SVGLClub.Data
+@using SVGLClub.Data.Services
+
+@inject IContentLoader ContentLoader
+
+<MudExpansionPanels MultiExpansion="true" Class="mud-width-full">
+	@foreach (var track in DriverTracks[DriverId])
+	{
+		var (lapMs, car) = GetFastestLapAndCarByTrack(DriverId, track);
+		<MudExpansionPanel Class="mud-width-full px-4" Style="@GetTrackPanelStyle(track)">
+			<TitleContent>
+				<MudStack Row="true">
+					<MudText Typo="Typo.h5">@ContentLoader.GetDisplayName(track)</MudText>
+					<MudSpacer />
+					<MudText Class="pr-4" Typo="Typo.h5">@GetTrackLapCount(track) Laps</MudText>
+				</MudStack>
+			</TitleContent>
+			<ChildContent>
+
+				<MudTable T="CarLapStat"
+						  Items="GetCarLapStats(DriverId, track)"
+						  Dense="true"
+						  Hover="true"
+						  Class="mud-width-full">
+					<HeaderContent>
+						<MudTh>Car</MudTh>
+						<MudTh Style="text-align:right;">Fastest Lap</MudTh>
+						<MudTh Style="text-align:right;">Optimal Lap</MudTh>
+					</HeaderContent>
+					<RowTemplate Context="stat">
+						<MudTd>
+							<MudImage Style="vertical-align:middle; margin-right:4px" Src="@GetCarBrandSrc(stat.CarModel)" Alt="logo" Height="16" />
+							@ContentLoader.GetDisplayName(stat.CarModel)
+						</MudTd>
+						<MudTd Style="text-align: right">@Util.FormatTime(TimeSpan.FromMilliseconds(stat.FastestLapMs))</MudTd>
+						<MudTd Style="text-align: right">@Util.FormatTime(TimeSpan.FromMilliseconds(stat.OptimalLapMs))</MudTd>
+					</RowTemplate>
+				</MudTable>
+			</ChildContent>
+		</MudExpansionPanel>
+	}
+</MudExpansionPanels>
+
+
+@code {
+	[Parameter] public string DriverId { get; set; } = null!;
+	[Parameter] public List<AssettoSession> Sessions { get; set; } = null!;
+	[Parameter] public Dictionary<string, List<SessionLap>> DriverLaps { get; set; } = null!;
+	[Parameter] public Dictionary<string, HashSet<string>> DriverTracks { get; set; } = null!;
+
+	private class CarLapStat
+	{
+		public string CarModel { get; set; } = string.Empty;
+		public long FastestLapMs { get; set; }
+		public long OptimalLapMs { get; set; }
+	}
+
+
+
+	private List<CarLapStat> GetCarLapStats(string driverId, string trackId)
+	{
+		var laps = Sessions
+			.Where(s =>
+				(s.TrackConfig is null or ""
+					? $"{s.TrackName}|"
+					: $"{s.TrackName}|{s.TrackConfig}")
+				== trackId)
+			.SelectMany(s => s.Laps!.Where(l => l.DriverGuid == driverId && l.Cuts == 0))
+			.ToList();
+
+		return laps
+			.GroupBy(l => l.CarModel)
+			.Select(g =>
+			{
+				var bestLap = g.Min(l => l.LapTime);
+				var bestS1 = g.Min(l => l.Sector1);
+				var bestS2 = g.Min(l => l.Sector2);
+				var bestS3 = g.Min(l => l.Sector3);
+
+				return new CarLapStat
+				{
+					CarModel = g.Key,
+					FastestLapMs = bestLap,
+					OptimalLapMs = bestS1 + bestS2 + bestS3
+				};
+			})
+			.OrderBy(r => r.FastestLapMs)
+			.ThenBy(r => r.CarModel)
+			.ToList();
+	}
+
+	private (long fastestLapMs, string carModel) GetFastestLapAndCarByTrack(string driverId, string trackId)
+	{
+		var laps = Sessions
+			.Where(s =>
+				(s.TrackConfig is null or ""
+				? $"{s.TrackName}|"
+				: $"{s.TrackName}|{s.TrackConfig}")
+				== trackId)
+			.SelectMany(s => s.Laps!
+				.Where(l => l.DriverGuid == driverId))
+			.ToList();
+
+		if (!laps.Any()) { return (0, string.Empty); }
+
+		var best = laps.OrderBy(l => l.LapTime).First();
+		return (best.LapTime, best.CarModel);
+	}
+
+	private string GetCarBrandSrc(string car) => $"accontent/cars/{car}/badge.png";
+
+	private string GetTrackPanelStyle(string track)
+	{
+		var trackParts = track.Split("|");
+
+		if (trackParts[1] == "") { trackParts[1] = "default"; }
+
+		return $@"
+			cursor:pointer;
+			background:
+				linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, .9)),
+				url('/accontent/tracks/{trackParts[0]}/{trackParts[1]}/preview.png');
+			background-size: cover;
+			background-position: center;";
+	}
+
+	private int GetTrackLapCount(string trackId)
+	{
+		var laps = DriverLaps[DriverId];
+
+		var sessions = Sessions
+						.ToDictionary(
+							s => s.Id,
+							s => s.TrackConfig is null or ""
+								? $"{s.TrackName}|"
+								: $"{s.TrackName}|{s.TrackConfig}");
+
+		return laps.Count(l => sessions.TryGetValue(l.AssettoSessionId, out var t) && t == trackId);
+	}
+}

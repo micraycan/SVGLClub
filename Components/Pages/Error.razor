@@ -1,0 +1,43 @@
+﻿@page "/Error"
+@using System.Diagnostics
+
+@using MudBlazor
+
+@rendermode InteractiveServer
+
+@* Required *@
+<MudThemeProvider IsDarkMode="true" />
+<MudPopoverProvider />
+
+@* Needed for dialogs *@
+<MudDialogProvider />
+
+@* Needed for snackbars *@
+<MudSnackbarProvider />
+
+<PageTitle>Error</PageTitle>
+
+<MudContainer>
+    <MudText Typo="Typo.h2">Error</MudText>
+    <MudText Typo="Typo.h4">An error occured while processing your request.</MudText>
+
+    @if (ShowRequestId)
+    {
+        <MudText Typo="Typo.body1">Request ID:<strong>@RequestId</strong></MudText>
+    }
+
+    <MudText Typo="Typo.body1">Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.</MudText>
+</MudContainer>
+
+
+@code{
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}
+

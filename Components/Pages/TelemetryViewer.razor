@@ -1,0 +1,166 @@
+﻿@page "/telemetry"
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@using SVGLClub.Data
+@using SVGLClub.Data.Services
+@using SVGLClub.Components.Layout
+@using System.Text.Json
+@using Blazor_ApexCharts
+
+@inject ITelemetryParser TelemetryParser
+@inject IContentLoader ContentLoader
+@inject ISessionSyncService SessionSyncService
+@inject IQueryService QueryService
+
+@rendermode InteractiveServer
+
+
+<PageTitle>Telemetry Analyzer</PageTitle>
+
+<CascadingAuthenticationState>
+	<AuthorizeView>
+		<Authorized>
+			<MudContainer Class="pa-4">
+				<MudText Typo="Typo.h5" Class="mb-4">Upload & Save Telemetry</MudText>
+				<InputFile id="fileInput" accept=".tc" style="display:none" OnChange="OnFileSelected" />
+				<MudButton HtmlTag="label" for="fileInput" Variant="Variant.Filled" Color="Color.Primary">Browse</MudButton>
+				<MudButton Variant="Variant.Filled" Disabled="@(_selectedFile == null || _pageLoading)" OnClick="LoadAndSaveTelemetry">Load & Save</MudButton>
+
+				@if (_pageLoading)
+				{
+					<MudProgressCircular Indeterminate="true" Class="my-4" />
+					<MudText Typo="Typo.caption">Parsing telemetry...</MudText>
+				}
+
+				<MudDivider Class="my-6" />
+				<MudText Typo="Typo.h6" Class="mb-2">Compare Recorded Laps</MudText>
+
+				<MudGrid>
+					<MudItem xs="12" sm="4">
+						<MudSelect T="string" Label="Track" Immediate="true"  Dense="true" ValueChanged="OnTrackKeyChanged">
+							@foreach (var key in _trackKeys)
+							{
+								<MudSelectItem Value="@key">@ContentLoader.GetDisplayName(key)</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+
+					<MudItem xs="12" sm="4">
+						<MudSelect T="TelemetryEntry" Label="Lap #1" Immediate="true" @bind-Value="_selectedEntry1" Dense="true" Disabled="@(_entries.Count == 0)">
+							@foreach (var e in _entries)
+							{
+								<MudSelectItem Value="@e">
+									@($"{e.Driver} - {ContentLoader.GetDisplayName(e.Car)} - {Util.FormatTime(TimeSpan.FromMilliseconds(e.LapTimeMs))}")
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+
+					<MudItem xs="12" sm="4">
+						<MudSelect T="TelemetryEntry" Label="Lab #2" Immediate="true" @bind-Value="_selectedEntry2" Dense="true" Disabled="@(_entries.Count() == 0)">
+							@foreach (var e in _entries)
+							{
+								<MudSelectItem Value="@e">
+									@($"{e.Driver} - {ContentLoader.GetDisplayName(e.Car)} - {Util.FormatTime(TimeSpan.FromMilliseconds(e.LapTimeMs))}")
+								</MudSelectItem>
+							}
+						</MudSelect>
+					</MudItem>
+				</MudGrid>
+				<MudButton Class="my-4" 
+						Variant="Variant.Filled" 
+						Color="Color.Secondary" 
+						Disabled="@(_selectedEntry1 == null || _selectedEntry2 == null)" 
+						OnClick="() => _showCharts = true">
+					Show Charts
+					</MudButton>
+
+				@if (_showCharts)
+				{
+					<TelemetryCharts TrackSections="_trackSections" Entry1="@_selectedEntry1" Entry2="@_selectedEntry2" />
+				}
+			</MudContainer>
+		</Authorized>
+		<NotAuthorized>
+			<MudContainer Class="pa-4">
+				<MudText Typo="Typo.h5">Must be logged in to use.</MudText>
+			</MudContainer>
+		</NotAuthorized>
+	</AuthorizeView>
+</CascadingAuthenticationState>
+
+@code {
+	private IBrowserFile? _selectedFile;
+	private bool _pageLoading = false;
+	private TelemetryData? _data;
+
+	private List<string> _trackKeys = new();
+	private string _selectedTrackKey = string.Empty;
+	private bool _showCharts = false;
+
+	private List<AssettoSession> _sessions { get; set; } = null!;
+	private List<TelemetryEntry> _entries = new();
+	private TelemetryEntry? _selectedEntry1;
+	private TelemetryEntry? _selectedEntry2;
+	private List<TrackSectionPoint> _trackSections { get; set; } = new();
+
+	protected override async Task OnInitializedAsync()
+	{
+		var pairs = await TelemetryParser.GetTracksAsync();
+		await SessionSyncService.UpdateSessionsAsync();
+		_sessions = await QueryService.QuerySessions();
+		await ContentLoader.GetNamesAsync(_sessions);
+
+		_trackKeys = pairs
+			.Select(tp => tp.Track + "|" + tp.Variation)
+			.Distinct()
+			.OrderBy(k => k)
+			.ToList();
+	}
+
+	private void OnFileSelected(InputFileChangeEventArgs e)
+	{
+		_selectedFile = e.File;
+		StateHasChanged();
+	}
+
+	private async Task LoadAndSaveTelemetry()
+	{
+		if (_selectedFile is null) { return; }
+
+		_pageLoading = true;
+		StateHasChanged();
+
+		await using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 20_000_000);
+		using var ms = new MemoryStream();
+		await stream.CopyToAsync(ms);
+		ms.Position = 0;
+
+		_data = TelemetryParser.Parse(ms);
+
+		await TelemetryParser.SaveTelemetryAsync(_data);
+
+		_pageLoading = false;
+		StateHasChanged();
+	}
+
+	private async Task OnTrackKeyChanged(string selected)
+	{
+		_showCharts = false;
+
+		if (string.IsNullOrEmpty(selected))
+		{
+			_entries = new();
+		}
+		else
+		{
+			var parts = selected.Split('|');
+			var track = parts[0];
+			var variation = !string.IsNullOrEmpty(parts[1]) ? parts[1] : string.Empty;
+
+			_entries = await TelemetryParser.GetEntriesForTrackAsync(track, variation);
+			_trackSections = await ContentLoader.GetTrackSectionPointsAsync(selected);
+		}
+	}
+}
