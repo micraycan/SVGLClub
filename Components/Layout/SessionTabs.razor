@@ -1,0 +1,126 @@
+﻿@using SVGLClub.Data
+@using SVGLClub.Services
+@using SVGLClub.Utilities
+
+@inject IContentLoader ContentLoader
+
+<MudTabs Outlined="true" MaxHeight="800" Position="Position.Left" Rounded="true" Border="true" ApplyEffectsToContainer="true" Class="my-8">
+    @foreach (AssettoSession session in _sortedSessions)
+    {
+        <MudTabPanel Text="@session.SessionDate.ToUniversalTime().ToString("MMM d, yyyy h:mm tt")">
+            @{
+                List<SessionResult> results = session.Results?
+                            .Where(r => r.BestLap != 999999999 && r.TotalTime != 0)
+                            .ToList() ?? new List<SessionResult>();
+            }
+            <MudStack Row="true" Spacing="4" Justify="Justify.Center" AlignItems="AlignItems.Center" Class="ma-8">
+                <MudText Typo="Typo.subtitle1" Class="fw-bold">@($"{ContentLoader.GetDisplayName(session.TrackName + "|" + session.TrackConfig)}")</MudText>
+                <MudChip
+                    Style="width: 100px; text-align: center; white-space: nowrap;"
+                    Class="mr-4" T="string"
+                    Size="Size.Small"
+                    Color="@GetSessionChipColor(session.SessionType)">
+                    @session.SessionType
+                </MudChip>
+            </MudStack>
+            @if (results.Any())
+            {
+                <MudTable T="SessionResult"
+                Items="results"
+                Class="ma-4"
+                Dense="true"
+                Hover="true"
+                Elevation="4"
+                RowClass="cursor-pointer"
+                Style="background-color:var(--mud-palette-skeleton);"
+                OnRowClick="@( (TableRowClickEventArgs<SessionResult> e) => 
+                {
+                    if (e.Item is null) {return;}
+                    ToggleLaps(session.Id, e.Item!.DriverGuid, e.Item.CarModel);
+                })">
+
+                <HeaderContent>
+                    <MudTh>Pos</MudTh>
+                    <MudTh>Driver</MudTh>
+                    <MudTh>Car</MudTh>
+                    <MudTh Style="text-align: right;">Best Lap</MudTh>
+                    <MudTh Style="text-align: right;">Optimal</MudTh>
+                    <MudTh Style="text-align: right;">Total Time</MudTh>
+                </HeaderContent>
+
+                <RowTemplate Context="result">
+                    <MudTd DataLabel="Pos">@(results.IndexOf(result) + 1)</MudTd>
+                    <MudTd DataLabel="Driver">@result.DriverName</MudTd>
+                    <MudTd DataLabel="Car">@ContentLoader.GetDisplayName(result.CarModel)</MudTd>
+                    <MudTd Style="text-align: right;" DataLabel="Best Lap">@Formatter.FormatTime(TimeSpan.FromMilliseconds(result.BestLap))</MudTd>
+                    <MudTd Style="text-align: right;" DataLabel="Optimal Lap">@Formatter.FormatTime(TimeSpan.FromMilliseconds(GetOptimalLap(session, result.DriverGuid, result.CarModel)))</MudTd>
+                    <MudTd Style="text-align: right;" DataLabel="Total Time">@Formatter.FormatTime(TimeSpan.FromMilliseconds(result.TotalTime))</MudTd>
+                </RowTemplate>
+
+                <ChildRowContent>
+                    @if (IsExpanded(session.Id, context.DriverGuid, context.CarModel))
+                    {
+                        <MudTr>
+                            <MudTd ColSpan="6" Class="pa-4">
+                                <LapsTable Laps="@session.Laps!.Where(l => l.DriverGuid == context.DriverGuid && l.CarModel == context.CarModel).ToList()" />
+                            </MudTd>
+                        </MudTr>
+                    }
+                </ChildRowContent>
+                </MudTable>
+            }
+            else
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.TimerOff" Size="Size.Large" Color="Color.Error" />
+                    <MudText Typo="Typo.subtitle1" Color="Color.Error">No laps completed</MudText>
+                </MudStack>
+            }
+        </MudTabPanel>
+    }
+</MudTabs>
+
+@code {
+    [Parameter] public List<AssettoSession> Sessions { get; set; } = new();
+
+    private List<AssettoSession> _sortedSessions = new();
+    private HashSet<(int sessionId, string driverGuid, string car)> _expanded = new();
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        if (Sessions is null) { return; }
+
+        _sortedSessions = Sessions.OrderByDescending(s => s.SessionDate).ToList();
+    }
+
+    private void ToggleLaps(int sessionId, string driverGuid, string car)
+    {
+        var key = (sessionId, driverGuid, car);
+        if (!_expanded.Remove(key)) { _expanded.Add(key); }
+    }
+
+    private long GetOptimalLap(AssettoSession session, string driverGuid, string car)
+    {
+        List<SessionLap> laps = session.Laps?
+            .Where(l => l.DriverGuid == driverGuid && l.CarModel == car && l.Cuts == 0)
+            .ToList() ?? new List<SessionLap>();
+
+        long bestS1 = laps.Min(l => l.Sector1);
+        long bestS2 = laps.Min(l => l.Sector2);
+        long bestS3 = laps.Min(l => l.Sector3);
+
+        return bestS1 + bestS2 + bestS3;
+    }
+
+    private bool IsExpanded(int sessionId, string driverGuid, string car) => _expanded.Contains((sessionId, driverGuid, car));
+
+    private Color GetSessionChipColor(string sessionType) => sessionType.ToUpperInvariant() switch
+    {
+        "PRACTICE" => Color.Default,
+        "QUALIFY" => Color.Primary,
+        "RACE" => Color.Success,
+        _ => Color.Default
+    };
+}

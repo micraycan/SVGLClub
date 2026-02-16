@@ -1,55 +1,68 @@
-﻿@using MudBlazor
-@using SVGLClub.Data
+﻿@using SVGLClub.Data
+@using SVGLClub.Utilities
 
 <MudTable T="SessionLap"
-		Items="Laps"
-		Dense="true"
-		Elevation="8"
-		Outlined="true"
-		Class="ma-4">
-	<HeaderContent>
-		<MudTh>Lap</MudTh>
-		<MudTh Style="text-align: right;">Sector 1</MudTh>
-		<MudTh Style="text-align: right;">Sector 2</MudTh>
-		<MudTh Style="text-align: right;">Sector 3</MudTh>
-		<MudTh Style="text-align: right;">Lap Time</MudTh>
-		<MudTh Style="text-align: center;">Off-tracks</MudTh>
-		<MudTh Style="text-align: center;">Tire</MudTh>
-	</HeaderContent>
+    Items="Laps"
+    Dense="true"
+    Elevation="8"
+    Outlined="true"
+    Class="ma-4">
 
-	<RowTemplate Context="lap">
-		<MudTd DataLabel="Lap">@(Laps.IndexOf(lap) + 1)</MudTd>
-		<MudTd DataLabel="Sector 1" Style=@($"text-align:right; {(lap.Sector1 == _fastestSectors[0] && lap.Sector1 != 0 && lap.Cuts == 0 ? "color:#E040FB;font-weight:bold;" : "")}")>
-			@(lap.Sector1 == 0 ? "-" : Util.FormatTime(TimeSpan.FromMilliseconds(lap.Sector1)))
-		</MudTd>
-		<MudTd DataLabel="Sector 2" Style=@($"text-align:right; {(lap.Sector2 == _fastestSectors[1] && lap.Sector2 != 0 && lap.Cuts == 0 ? "color:#E040FB;font-weight:bold;" : "")}")>
-			@(lap.Sector2 == 0 ? "-" : Util.FormatTime(TimeSpan.FromMilliseconds(lap.Sector2)))
-		</MudTd>
-		<MudTd DataLabel="Sector 3" Style=@($"text-align:right; {(lap.Sector3 == _fastestSectors[2] && lap.Sector3 != 0 && lap.Cuts == 0 ? "color:#E040FB;font-weight:bold;" : "")}")>
-			@(lap.Sector3 == 0 ? "-" : Util.FormatTime(TimeSpan.FromMilliseconds(lap.Sector3)))
-		</MudTd>
-		<MudTd DataLabel="Lap Time" Style=@($"text-align:right; {(lap.LapTime == _fastestLap && lap.Cuts == 0 ? "color:#E040FB;font-weight:bold;" : "")}")>
-			@Util.FormatTime(TimeSpan.FromMilliseconds(lap.LapTime))
-		</MudTd>
-		<MudTd DataLabel="Off-tracks" Style="text-align: center;">@($"{lap.Cuts}x")</MudTd>
-		<MudTd DataLabel="Tire" Style="text-align: center;">@lap.Tyre</MudTd>
-	</RowTemplate>
+    <HeaderContent>
+        <MudTh>Lap</MudTh>
+        <MudTh Style="text-align: right;">Sector 1</MudTh>
+        <MudTh Style="text-align: right;">Sector 2</MudTh>
+        <MudTh Style="text-align: right;">Sector 3</MudTh>
+        <MudTh Style="text-align: right;">Lap Time</MudTh>
+        <MudTh Style="text-align: center;">Off-tracks</MudTh>
+        <MudTh Style="text-align: center;">Tire</MudTh>
+    </HeaderContent>
+
+    <RowTemplate Context="lap">
+        <MudTd DataLabel="Lap">@(Laps.IndexOf(lap) + 1)</MudTd>
+        <MudTd DataLabel="Sector1" Style="@GetFastestSectorStyle(1, lap.Sector1, lap.Cuts)">
+            @(lap.Sector1 == 0 ? "-" : Formatter.FormatTime(TimeSpan.FromMilliseconds(lap.Sector1)))
+        </MudTd>
+        <MudTd DataLabel="Sector2" Style="@GetFastestSectorStyle(2, lap.Sector2, lap.Cuts)">
+            @(lap.Sector2 == 0 ? "-" : Formatter.FormatTime(TimeSpan.FromMilliseconds(lap.Sector2)))
+        </MudTd>
+        <MudTd DataLabel="Sector3" Style="@GetFastestSectorStyle(3, lap.Sector3, lap.Cuts)">
+            @(lap.Sector3 == 0 ? "-" : Formatter.FormatTime(TimeSpan.FromMilliseconds(lap.Sector3)))
+        </MudTd>
+        <MudTd DataLabel="Lap Time" Style="@GetFastestLapStyle(lap.LapTime, lap.Cuts)">@Formatter.FormatTime(TimeSpan.FromMilliseconds(lap.LapTime))</MudTd>
+        <MudTd DataLabel="Off-tracks" Style="text-align: center;">@($"{lap.Cuts}x")</MudTd>
+        <MudTd DataLabel="Tire" Style="text-align: center;">@lap.Tyre</MudTd>
+    </RowTemplate>
 </MudTable>
 
 @code {
-	[Parameter] public List<SessionLap> Laps { get; set; } = null!;
+    [Parameter] public List<SessionLap> Laps { get; set; } = new();
 
-	private double _fastestLap;
-	private double[] _fastestSectors = new double[3];
+    private double _fastestLap;
+    private double[] _fastestSectors = new double[3];
 
-	protected override void OnParametersSet()
-	{
-		if (Laps?.Any() != true) { return; }
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
 
-		_fastestSectors[0] = Laps.Where(l => l.Cuts == 0).Min(l => l.Sector1);
-		_fastestSectors[1] = Laps.Where(l => l.Cuts == 0).Min(l => l.Sector2);
-		_fastestSectors[2] = Laps.Where(l => l.Cuts == 0).Min(l => l.Sector3);
+        if (Laps?.Any() != true) { return; }
 
-		_fastestLap = Laps.Where(l => l.Cuts == 0).Min(l => l.LapTime);
-	}
+        _fastestSectors[0] = Laps.Where(l => l.Cuts == 0).Min(l => l.Sector1);
+        _fastestSectors[1] = Laps.Where(l => l.Cuts == 0).Min(l => l.Sector2);
+        _fastestSectors[2] = Laps.Where(l => l.Cuts == 0).Min(l => l.Sector3);
+
+        _fastestLap = Laps.Where(l => l.Cuts == 0).Min(l => l.LapTime);
+    }
+
+    private string GetFastestSectorStyle(int sector, int sectorTime, int cuts)
+    {
+        string colorStyle = sectorTime == _fastestSectors[sector - 1] && sectorTime != 0 && cuts == 0 ? "color: #E040FB; font-weight:bold;" : "";
+        return $"text-align:right; {colorStyle}";
+    }
+
+    private string GetFastestLapStyle(int lapTime, int cuts)
+    {
+        string colorStyle = lapTime == _fastestLap && cuts == 0 ? "color: #E040FB; font-weight: bold;" : "";
+        return $"text-align:right; {colorStyle}";
+    }
 }

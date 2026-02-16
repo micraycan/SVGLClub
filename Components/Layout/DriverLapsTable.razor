@@ -1,0 +1,122 @@
+﻿@using SVGLClub.Data
+@using SVGLClub.Services
+@using SVGLClub.Utilities
+
+@inject IContentLoader ContentLoader
+
+<MudExpansionPanels MultiExpansion="true">
+	@foreach (string track in DriverTracks)
+	{
+		(long lapMS, string car) = GetFastestLapAndCarByTrack(DriverId, track);
+		<MudExpansionPanel Class="px-4" Style="@GetTrackPanelStyle(track)">
+			<TitleContent>
+				<MudStack Row="true">
+					<MudText Typo="Typo.h5">@ContentLoader.GetDisplayName(track)</MudText>
+					<MudSpacer />
+					<MudText Class="pr-4" Typo="Typo.h5">@GetTrackLapCount(track) Laps</MudText>
+				</MudStack>
+			</TitleContent>
+
+			<ChildContent>
+				<MudTable T="CarLapStat"
+					Items="GetCarLapStats(DriverId, track)"
+					Dense="true"
+					Hover="true">
+				
+					<HeaderContent>
+						<MudTh>Car</MudTh>
+						<MudTh Style="text-align:right;">Fastest Lap</MudTh>
+						<MudTh Style="text-align:right;">Optimal Lap</MudTh>
+					</HeaderContent>
+
+					<RowTemplate Context="stat">
+						<MudTd>
+							<MudImage Style="vertical-align:middle; margin-right:4px" 
+								Src="@Formatter.GetCarBrandSrc(stat.CarModel)" 
+								Alt="logo" Height="16" /> @ContentLoader.GetDisplayName(stat.CarModel)
+						</MudTd>
+						<MudTd Style="text-align:right">@Formatter.FormatTime(TimeSpan.FromMilliseconds(stat.FastestLapMS))</MudTd>
+						<MudTd Style="text-align:right">@Formatter.FormatTime(TimeSpan.FromMilliseconds(stat.OptimalLapMS))</MudTd>
+					</RowTemplate>
+				</MudTable>
+			</ChildContent>
+		</MudExpansionPanel>
+	}
+</MudExpansionPanels>
+
+@code {
+	[Parameter] public string DriverId { get; set; } = string.Empty;
+	[Parameter] public List<AssettoSession> Sessions { get; set; } = new();
+	[Parameter] public Dictionary<string, List<SessionLap>> DriverLaps { get; set; } = new();
+	[Parameter] public HashSet<string> DriverTracks { get; set; } = new();
+
+	private class CarLapStat
+	{
+		public string CarModel { get; set; } = string.Empty;
+		public long FastestLapMS { get; set; }
+		public long OptimalLapMS { get; set; }
+	}
+
+	private List<CarLapStat> GetCarLapStats(string driverGuid, string trackId)
+	{
+		List<SessionLap> laps = Sessions
+			.Where(s => Formatter.BuildTrackId(s.TrackName, s.TrackConfig) == trackId)
+			.SelectMany(s => s.Laps!.Where(l => l.DriverGuid == driverGuid && l.Cuts == 0))
+			.ToList();
+
+		return laps
+			.GroupBy(l => l.CarModel)
+			.Select(g =>
+			{
+				int bestLap = g.Min(l => l.LapTime);
+				int bestS1 = g.Min(l => l.Sector1);
+				int bestS2 = g.Min(l => l.Sector2);
+				int bestS3 = g.Min(l => l.Sector3);
+
+				return new CarLapStat
+					{
+						CarModel = g.Key,
+						FastestLapMS = bestLap,
+						OptimalLapMS = bestS1 + bestS2 + bestS3
+					};
+			})
+			.OrderBy(r => r.FastestLapMS)
+			.ThenBy(r => r.CarModel)
+			.ToList();
+	}
+
+	private (long fastestLapMS, string carModel) GetFastestLapAndCarByTrack(string driverGuid, string trackId)
+	{
+		List<SessionLap> laps = Sessions
+			.Where(s => Formatter.BuildTrackId(s.TrackName, s.TrackConfig) == trackId)
+			.SelectMany(s => s.Laps!.Where(l => l.DriverGuid == driverGuid))
+			.ToList();
+
+		if (!laps.Any()) { return (0, string.Empty); }
+
+		SessionLap best = laps.OrderBy(l => l.LapTime).First();
+		return (best.LapTime, best.CarModel);
+	}
+
+	private string GetTrackPanelStyle(string track)
+	{
+		var trackParts = track.Split("|");
+
+		if (trackParts[1] == "") { trackParts[1] = "default"; }
+
+		return $@"
+			cursor:pointer;
+			background:
+				linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, .9)),
+				url('/accontent/tracks/{trackParts[0]}/{trackParts[1]}/preview.png');
+			background-size: cover;
+			background-position: center;";
+	}
+
+	private int GetTrackLapCount(string trackId)
+	{
+		if (!DriverLaps.TryGetValue(trackId, out var laps)) { return 0; }
+
+		return laps.Count;
+	}
+}

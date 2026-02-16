@@ -1,0 +1,41 @@
+﻿@page "/trackleaderboard"
+
+@using SVGLClub.Components.Layout
+@using SVGLClub.Services
+
+@inject ISessionStateService SessionState
+
+<PageTitle>Track Leaderboard</PageTitle>
+
+@if (!_pageLoaded) 
+{
+    <MudContainer Class="d-flex justify-center align-center" Style="height:100vh">
+        <MudStack Spacing="2" AlignItems="AlignItems.Center">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large"/>
+            <MudText Typo="Typo.h6">Loading...</MudText>
+        </MudStack>
+    </MudContainer>
+}
+else 
+{
+    <MudContainer>
+        <MudContainer Class="my-4">
+            <MudText Typo="Typo.h4">Track Leaderboards</MudText>
+        </MudContainer>
+
+        <MudPaper Class="mud-theme-dark pa-4">
+            <TrackLeaderboardTabs Sessions="SessionState.Sessions" />
+        </MudPaper>
+    </MudContainer>
+}
+
+@code {
+    private bool _pageLoaded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SessionState.EnsureLoadedAsync();
+        _pageLoaded = true;
+        StateHasChanged();
+    }
+}

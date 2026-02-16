@@ -1,65 +1,18 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
-@using MudBlazor
-
-@inject NavigationManager Navigation
-
-@rendermode InteractiveServer
-
-@* Required *@
-<MudThemeProvider IsDarkMode="true" />
-<MudPopoverProvider />
-
-@* Needed for dialogs *@
-<MudDialogProvider />
-
-@* Needed for snackbars *@
-<MudSnackbarProvider />
-
-<MudAppBar Color="Color.Primary" Fixed="true" Dense="true" Elevation="1">
+﻿<MudAppBar Color="Color.Primary" Fixed="true" Dense="true" Elevation="1">
 	<MudContainer Class="d-flex align-items-center">
 		<MudHidden Breakpoint ="Breakpoint.MdAndUp">
 			<MudMenu Dense="true" Variant="Variant.Text" Size="Size.Medium" Color="Color.Inherit" Icon="@Icons.Material.Filled.Menu">
 				<MudMenuItem Href="/" ForceLoad="true" Icon="@Icons.Material.Filled.Dashboard" IconColor="Color.Inherit" Label="Dashboard" />
-				<MudMenuItem Href="/tracks" Icon="@Icons.Material.Filled.TrackChanges" IconColor="Color.Inherit" Label="Track Leaderboards" />
-				<MudMenuItem Href="/drivers" Icon="@Icons.Material.Filled.SportsMotorsports" IconColor="Color.Inherit" Label="Drivers" />
-				<CascadingAuthenticationState>
-					<AuthorizeView>
-						<Authorized>
-							<MudMenuItem Href="/telemetry" Icon="@Icons.Material.Filled.Timeline" IconColor="Color.Inherit" Label="Telemetry" />
-						</Authorized>
-					</AuthorizeView>
-				</CascadingAuthenticationState>
+				<MudMenuItem Href="/trackleaderboard" ForceLoad="true" Icon="@Icons.Material.Filled.TrackChanges" IconColor="Color.Inherit" Label="Track Leaderboard" />
+				<MudMenuItem Href="/driverstats" ForceLoad="true" Icon="@Icons.Material.Filled.SportsMotorsports" IconColor="Color.Inherit" Label="Driver Stats" />
 			</MudMenu>
 		</MudHidden>
 		<MudHidden Breakpoint="Breakpoint.SmAndDown">
 			<MudContainer Class="d-flex align-items-center">
 				<MudButton Href="/" StartIcon="@Icons.Material.Filled.Dashboard" Color="Color.Inherit">Dashboard</MudButton>
-				<MudButton Href="/tracks" StartIcon="@Icons.Material.Filled.TrackChanges" Color="Color.Inherit">Track Leaderboards</MudButton>
-				<MudButton Href="/drivers" StartIcon="@Icons.Material.Filled.SportsMotorsports" Color="Color.Inherit">Drivers</MudButton>
-				<CascadingAuthenticationState>
-					<AuthorizeView>
-						<Authorized>
-							<MudButton Href="/telemetry" StartIcon="@Icons.Material.Filled.Timeline" Color="Color.Inherit">Telemetry</MudButton>
-						</Authorized>
-					</AuthorizeView>
-				</CascadingAuthenticationState>
+				<MudButton Href="/trackleaderboard" StartIcon="@Icons.Material.Filled.TrackChanges" Color="Color.Inherit">Track Leaderboard</MudButton>
+				<MudButton Href="/driverstats" StartIcon="@Icons.Material.Filled.SportsMotorsports" Color="Color.Inherit">Driver Stats</MudButton>
 			</MudContainer>
 		</MudHidden>
-
-		<MudSpacer />
-		<CascadingAuthenticationState>
-			<AuthorizeView>
-				<NotAuthorized>
-					<MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/login" EndIcon="@Icons.Custom.Brands.Steam">Login</MudButton>
-				</NotAuthorized>
-				<Authorized>
-					<MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="LogoutNav">Logout</MudButton>
-				</Authorized>
-			</AuthorizeView>
-		</CascadingAuthenticationState>
 	</MudContainer>
 </MudAppBar>
-
-@code {
-	private void LogoutNav() => Navigation.NavigateTo("/logout", true);
-}

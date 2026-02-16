@@ -1,10 +1,10 @@
-﻿namespace SVGLClub.Data.Dto
+﻿namespace SVGLClub.Data.DTO
 {
-    public class SessionJsonModel
+    public class SessionJson
     {
-        public string TrackName { get; set; } = null!;
-        public string TrackConfig { get; set; } = null!;
-        public string Type { get; set; } = null!;
+        public string TrackName { get; set; } = string.Empty;
+        public string TrackConfig { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
         public int DurationSecs { get; set; }
         public int RaceLaps { get; set; }
 

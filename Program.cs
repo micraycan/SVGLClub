@@ -1,12 +1,8 @@
-using MudBlazor.Services;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using AspNet.Security.OpenId.Steam;
-using SVGLClub.Data;
-
+using MudBlazor.Services;
 using SVGLClub.Components;
-using Microsoft.AspNetCore.Authentication;
-using SVGLClub.Data.Services;
+using SVGLClub.Data;
+using SVGLClub.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,33 +13,29 @@ builder.Services.AddRazorComponents()
 // http
 builder.Services.AddHttpClient();
 
-// Mudblazor
+// MudBlazor
 builder.Services.AddMudServices();
 
-// EF Core
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// Entity Framework
+builder.Services.AddDbContext<AppDBContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddAuthorization();
+// car config 
+builder.Services.Configure<List<CarClassConfig>>(builder.Configuration.GetSection("CarClasses"));
 
-builder.Services.AddScoped<ISessionSyncService, SessionSyncService>();
+// services
+builder.Services.AddScoped<IAPISessionProvider, APISessionProvider>();
 builder.Services.AddScoped<IContentLoader, ContentLoader>();
+builder.Services.AddScoped<IDriverStatService, DriverStatService>();
 builder.Services.AddScoped<IQueryService, QueryService>();
-builder.Services.AddScoped<ITelemetryParser, TelemetryParser>();
-
-// Steam
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = SteamAuthenticationDefaults.AuthenticationScheme;
-})
-.AddCookie()
-.AddSteam(options =>
-{
-    options.ApplicationKey = builder.Configuration["Steam:ApiKey"];
-});
+builder.Services.AddScoped<IRemoteFileService, RemoteFileService>();
+builder.Services.AddScoped<IServerConfigLoader, ServerConfigLoader>();
+builder.Services.AddScoped<ISessionDBSaver, SessionDBSaver>();
+builder.Services.AddScoped<ISessionImportService, SessionImportService>();
+builder.Services.AddScoped<ISessionJsonDeserializer, SessionJsonDeserializer>();
+builder.Services.AddScoped<ISessionMapper, SessionMapper>();
+builder.Services.AddScoped<ISessionStateService, SessionStateService>();
 
 var app = builder.Build();
 
@@ -55,27 +47,15 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseAuthentication();
-app.UseAuthorization();
+app.UseHttpsRedirection();
 
 app.UseHttpsRedirection();
 app.UseRouting();
-
 app.UseStaticFiles();
+
+
 app.UseAntiforgery();
-
-app.MapGet("/login", async (HttpContext http) =>
-{
-    var props = new AuthenticationProperties { RedirectUri = "/" };
-    await http.ChallengeAsync(SteamAuthenticationDefaults.AuthenticationScheme, props);
-});
-
-app.MapGet("/logout", async (HttpContext http) =>
-{
-    await http.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-    http.Response.Redirect("/");
-});
-
+app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

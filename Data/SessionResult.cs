@@ -1,6 +1,4 @@
-﻿using System.Data;
-
-namespace SVGLClub.Data
+﻿namespace SVGLClub.Data
 {
     public class SessionResult
     {

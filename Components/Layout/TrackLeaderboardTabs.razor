@@ -1,0 +1,112 @@
+﻿@using SVGLClub.Data
+@using SVGLClub.Services
+
+@inject IConfiguration Configuration
+@inject IContentLoader ContentLoader
+
+<MudTabs Outlined="true" Position="Position.Left" Rounded="true" Border="true" ApplyEffectsToContainer="true" Class="pa-4">
+    @foreach (string trackId in TrackIds)
+    {
+        <MudTabPanel Text="@ContentLoader.GetDisplayName(trackId)" Style="@GetTrackPanelStyle(trackId)">
+            <MudCard Square="true" Style="background-color:var(--mud-palette-skeleton)">
+                <MudStack Row="true">
+                    <MudCardMedia Image="@GetTrackImageUrl(trackId)" Height="200" />
+                    <MudCardContent>
+                        @foreach (CarClassConfig carClass in _carClassConfig)
+                        {
+                            var items = GetLeaderboardItems(trackId, carClass.Cars);
+
+                            if (items.Count > 0)
+                            {
+                                <MudText Typo="Typo.h6">@carClass.Name Class</MudText>
+                                <MudPaper>
+                                    <TrackClassLeaderboard Items="items" />
+                                </MudPaper>
+                            }
+                        }
+                    </MudCardContent>
+                </MudStack>
+            </MudCard>
+        </MudTabPanel>
+    }
+</MudTabs>
+
+@code {
+    [Parameter] public List<AssettoSession> Sessions { get; set; } = new();
+
+    private List<CarClassConfig> _carClassConfig = new();
+
+    private List<string> TrackIds => Sessions
+        .Select(s => string.IsNullOrEmpty(s.TrackConfig)
+            ? $"{s.TrackName}|" : $"{s.TrackName}|{s.TrackConfig}")
+        .Distinct()
+        .OrderBy(t => t)
+        .ToList();
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        _carClassConfig = Configuration.GetSection("CarClasses").Get<List<CarClassConfig>>() ?? new();
+    }
+
+    private string GetTrackPanelStyle(string track)
+    {
+        var trackParts = track.Split("|");
+
+        if (trackParts[1] == "") { trackParts[1] = "default"; }
+
+        return $@"
+			cursor:pointer;
+			background:
+				linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, .9)),
+				url('/accontent/tracks/{trackParts[0]}/{trackParts[1]}/preview.png');
+			background-size: cover;
+			background-position: center;";
+    }
+
+    private string GetTrackImageUrl(string track)
+    {
+        var trackParts = track.Split("|");
+
+        if (trackParts[1] == "") { trackParts[1] = "default"; }
+
+        return $"/accontent/tracks/{trackParts[0]}/{trackParts[1]}/preview.png";
+    }
+
+    private List<LeaderboardItem> GetLeaderboardItems(string trackId, List<string> carClass)
+    {
+        List<SessionLap> lapsOnTrack = Sessions
+            .Where(s => (string.IsNullOrEmpty(s.TrackConfig)
+                ? $"{s.TrackName}|" : $"{s.TrackName}|{s.TrackConfig}") == trackId)
+            .SelectMany(s => s.Laps!.Where(l => l.Cuts == 0 && carClass.Contains(l.CarModel)))
+            .ToList();
+
+        List<LeaderboardItem> drivers = lapsOnTrack
+            .GroupBy(l => l.DriverGuid)
+            .Select(g =>
+            {
+                var bestLap = g.OrderBy(l => l.LapTime).First();
+                var name = Sessions
+                    .SelectMany(s => s.Results ?? Enumerable.Empty<SessionResult>())
+                    .First(r => r.DriverGuid == g.Key)
+                    .DriverName;
+
+                return new LeaderboardItem
+                    {
+                        DriverGuid = g.Key,
+                        DriverName = name,
+                        FastestLapMs = bestLap.LapTime,
+                        CarModel = bestLap.CarModel
+                    };
+            })
+            .OrderBy(i => i.FastestLapMs)
+            .ToList();
+
+        for (int i = 0; i < drivers.Count(); i++)
+        {
+            drivers[i].Rank = i + 1;
+        }
+
+        return drivers;
+    }
+}

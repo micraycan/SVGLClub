@@ -1,4 +1,4 @@
-﻿namespace SVGLClub.Data.Dto
+﻿namespace SVGLClub.Data.DTO
 {
     public class DriverJson
     {

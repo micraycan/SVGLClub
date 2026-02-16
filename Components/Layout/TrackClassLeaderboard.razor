@@ -1,22 +1,24 @@
-﻿@using MudBlazor
+﻿@using SVGLClub.Services
 @using SVGLClub.Data
-@using SVGLClub.Data.Services
+@using SVGLClub.Utilities
 
 @inject IContentLoader ContentLoader
 
-<MudTable Items="@Items" Dense="true" Hover="true" Class="mud-theme-dark my-4">
+<MudTable Items="@Items" Dense="true" Hover="true" Class="pa-4" Elevation="4">
 	<ColGroup>
 		<col style="width: 5%;" />
 		<col style="width: 25%;" />
 		<col style="width: 25%;" />
 		<col style="width: 45%;" />
 	</ColGroup>
+
 	<HeaderContent>
 		<MudTh>Place</MudTh>
 		<MudTh>Driver</MudTh>
 		<MudTh>Fastest Lap</MudTh>
 		<MudTh>Car</MudTh>
 	</HeaderContent>
+
 	<RowTemplate Context="item">
 		<MudTd>
 			@if (item.Rank == 1)
@@ -37,7 +39,7 @@
 			}
 		</MudTd>
 		<MudTd>@item.DriverName</MudTd>
-		<MudTd>@Util.FormatTime(TimeSpan.FromMilliseconds(item.FastestLapMs))</MudTd>
+		<MudTd>@Formatter.FormatTime(TimeSpan.FromMilliseconds(item.FastestLapMs))</MudTd>
 		<MudTd>
 			<MudImage Src="@GetCarBrandSrc(item.CarModel)" Alt="logo" Height="16" Style="vertical-align:middle;margin-right:4px" />
 			@ContentLoader.GetDisplayName(item.CarModel)
@@ -46,7 +48,7 @@
 </MudTable>
 
 @code {
-	[Parameter] public List<LeaderboardItem> Items { get; set; } = new();
+    [Parameter] public List<LeaderboardItem> Items { get; set; } = new();
 	[Parameter] public List<string> Cars { get; set; } = new();
 
 	private string GetCarBrandSrc(string car) => $"accontent/cars/{car}/badge.png";

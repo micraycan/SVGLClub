@@ -4,4 +4,8 @@
 !/Components/**
 !/Data/
 !/Data/**
+!/Services
+!/Services/**
+!/Utilities/
+!/Utilities/**
 !/Program.cs

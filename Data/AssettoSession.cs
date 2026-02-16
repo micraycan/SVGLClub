@@ -23,7 +23,7 @@
                 var parts = name.Split('_');
                 if (parts.Length < 5) { return DateTime.MinValue; }
 
-                if (int.TryParse(parts[0], out var year) 
+                if (int.TryParse(parts[0], out var year)
                     && int.TryParse(parts[1], out var month)
                     && int.TryParse(parts[2], out var day)
                     && int.TryParse(parts[3], out var hour)

@@ -1,0 +1,48 @@
+﻿@using SVGLClub.Services
+@using SVGLClub.Utilities
+
+@inject IContentLoader ContentLoader
+
+<MudContainer>
+	<MudGrid Class="w-100">
+		<MudItem xs="12" sm="4">
+			<MudPaper Elevation="4" Class="pa-6 d-flex flex-column justify-space-between" Style="height:100%">
+				<MudStack>
+					<MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mt-auto fw-bold">Favorite Car</MudText>
+					<MudDivider />
+				</MudStack>
+				<MudText Typo="Typo.body1" Class="pt-4">
+					<MudImage Style="vertical-align:middle; margin-right:4px"
+							  Src="@Formatter.GetCarBrandSrc(FavoriteCar)"
+							  Alt="logo" Height="16" /> @ContentLoader.GetDisplayName(FavoriteCar)
+				</MudText>
+			</MudPaper>
+		</MudItem>
+
+		<MudItem xs="12" sm="4">
+			<MudPaper Elevation="4" Class="pa-6 d-flex flex-column justify-space-between" Style="height:100%">
+				<MudStack>
+					<MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mt-auto fw-bold">Laps Driven</MudText>
+					<MudDivider />
+				</MudStack>
+				<MudText Typo="Typo.body1" Class="pt-4">@LapCount</MudText>
+			</MudPaper>
+		</MudItem>
+
+		<MudItem xs="12" sm="4">
+			<MudPaper Elevation="4" Class="pa-6 d-flex flex-column justify-space-between" Style="height:100%">
+				<MudStack>
+					<MudText Typo="Typo.subtitle2" Color="Color.Primary" Class="mt-auto fw-bold">Favorite Track</MudText>
+					<MudDivider />
+				</MudStack>
+				<MudText Typo="Typo.body1" Class="pt-4">@ContentLoader.GetDisplayName(FavoriteTrack)</MudText>
+			</MudPaper>
+		</MudItem>
+	</MudGrid>
+</MudContainer>
+
+@code {
+	[Parameter] public string FavoriteCar { get; set; } = "-";
+	[Parameter] public int LapCount { get; set; } = 0;
+	[Parameter] public string FavoriteTrack { get; set; } = "-";
+}
