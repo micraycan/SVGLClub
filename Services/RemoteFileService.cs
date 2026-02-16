@@ -25,7 +25,7 @@ namespace SVGLClub.Services
         public async Task<string> DownloadFileAsync(string subDir, string filename)
         {
             string sessionId = await _apiSessionProvider.GetSessionIDAsync();
-            string remotePath = Path.Combine(_config["AMPServer:Dir"]!, subDir, filename);
+            string remotePath = $"{_config["AMPServer:Dir"]}/{subDir}/{filename}";
 
             StringBuilder sb = new();
             long offset = 0;
@@ -69,10 +69,11 @@ namespace SVGLClub.Services
         public async Task<List<string>> GetSessionFilesAsync()
         {
             string sessionId = await _apiSessionProvider.GetSessionIDAsync();
+            string resultDir = $"{_config["AMPServer:Dir"]}/{_config["AMPServer:ResultDir"]}";
 
             string body = JsonSerializer.Serialize(new
             {
-                Dir = _config["AMPServer:ResultDir"],
+                Dir = resultDir,
                 SESSIONID = sessionId
             });
 
